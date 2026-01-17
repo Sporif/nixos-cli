@@ -98,6 +98,7 @@ func InstallCommand() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&opts.Channel, "channel", "c", "", "Use derivation at `path` as the 'nixos' channel to copy")
+	cmd.Flags().BoolVar(&opts.BuildInTarget, "build-in-target-store", false, "Build system in target store instead of host store")
 	cmd.Flags().BoolVar(&opts.NoBootloader, "no-bootloader", false, "Do not install bootloader on device")
 	cmd.Flags().BoolVar(&opts.NoChannelCopy, "no-channel-copy", false, "Do not copy over a NixOS channel")
 	cmd.Flags().BoolVar(&opts.NoRootPassword, "no-root-passwd", false, "Do not prompt for setting root password")
@@ -483,11 +484,16 @@ func installMain(cmd *cobra.Command, opts *cmdOpts.InstallOpts) error {
 	var resultLocation string
 
 	if opts.SystemClosure == "" {
+		extraArgs := []string{"--extra-substituters", defaultExtraSubstituters}
+		if opts.BuildInTarget {
+			extraArgs = append(extraArgs, "--store", mountpoint)
+		}
+
 		systemBuildOptions := configuration.SystemBuildOptions{
 			CmdFlags:  cmd.Flags(),
 			NixOpts:   opts.NixOptions,
 			Env:       envMap,
-			ExtraArgs: []string{"--extra-substituters", defaultExtraSubstituters},
+			ExtraArgs: extraArgs,
 		}
 
 		log.Step("Building system...")

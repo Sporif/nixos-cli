@@ -141,6 +141,13 @@ is also possible, assuming a successful installation.
 *-h*, *--help*
 	Show the help message for this command.
 
+*--build-in-target-store*
+	Build the system in the target store instead of the host store.
+
+	This is useful if the host store is on a read-only or space-limited filesystem.
+	However, this can result in a larger target store, due to any build dependencies
+	downloaded in the build process.
+
 *--no-bootloader*
 	Do not install the bootloader on the target device.
 

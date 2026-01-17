@@ -152,6 +152,7 @@ type InitOpts struct {
 
 type InstallOpts struct {
 	Channel        string
+	BuildInTarget  bool
 	NoBootloader   bool
 	NoChannelCopy  bool
 	NoRootPassword bool
