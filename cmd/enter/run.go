@@ -3,6 +3,7 @@
 package enter
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -79,7 +80,7 @@ func enterMain(cmd *cobra.Command, opts *cmdOpts.EnterOpts) error {
 		if _, err := os.Stat("/etc/resolv.conf"); err == nil {
 			log.Infof("bind-mounting /etc/resolv.conf to %v for Internet access", opts.RootLocation)
 
-			targetResolvConf, err := findResolvConfLocation(opts.RootLocation)
+			targetResolvConf, err := findResolvConfLocation(opts.RootLocation, log)
 			if err != nil {
 				log.Warnf("failed to find resolv.conf location: %v", err)
 				resolvConfErr = err
@@ -199,26 +200,38 @@ func bindMountDirectory(root string, subdir string) error {
 	return err
 }
 
-func findResolvConfLocation(root string) (string, error) {
+func findResolvConfLocation(root string, log logger.Logger) (string, error) {
 	targetResolvConf := filepath.Join(root, "/etc/resolv.conf")
+	var finalLocation string
 
-	resolvConf, err := os.OpenFile(targetResolvConf, os.O_CREATE|os.O_RDONLY, 0o644)
+	// Handle resolv.conf as a symlink to somewhere else.
+	lstatInfo, err := os.Lstat(targetResolvConf)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return "", err
+	} else if err == nil && lstatInfo.Mode()&os.ModeSymlink != 0 {
+		linkDest, err := os.Readlink(targetResolvConf)
+		log.Debugf("resolv.conf link destination: %v", linkDest)
+		if err != nil {
+			return "", err
+		}
+
+		if strings.HasPrefix(linkDest, "/") {
+			finalLocation = filepath.Join(root, linkDest)
+		} else {
+			finalLocation = filepath.Join(root, "etc", linkDest)
+		}
+	} else {
+		finalLocation = targetResolvConf
+	}
+
+	log.Debugf("final resolv.conf is: %v", finalLocation)
+
+	// Ensure file exists to bind mount over
+	resolvConf, err := os.OpenFile(finalLocation, os.O_CREATE|os.O_RDONLY, 0o644)
 	if err != nil {
 		return "", err
 	}
 	_ = resolvConf.Close()
-
-	resolvedLocation, err := filepath.EvalSymlinks(targetResolvConf)
-	if err != nil {
-		return "", err
-	}
-
-	var finalLocation string
-	if !strings.HasPrefix(resolvedLocation, "/") {
-		finalLocation = filepath.Join(root, resolvedLocation)
-	} else {
-		finalLocation = filepath.Join(root, "etc", resolvedLocation)
-	}
 
 	return finalLocation, nil
 }
