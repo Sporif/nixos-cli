@@ -7,6 +7,7 @@ import (
 	"github.com/nix-community/nixos-cli/internal/logger"
 	"github.com/nix-community/nixos-cli/internal/settings"
 	"github.com/nix-community/nixos-cli/internal/system"
+	"github.com/nix-community/nixos-cli/internal/utils"
 	"github.com/spf13/pflag"
 )
 
@@ -69,26 +70,26 @@ func FindConfiguration(log logger.Logger, cfg *settings.Settings, includes []str
 }
 
 type BuildType interface {
-	BuildAttr() string
+	BuildAttr() utils.NixAttrPath
 }
 
 type SystemBuild struct {
 	Activate bool
 }
 
-func (s *SystemBuild) BuildAttr() string {
-	return "toplevel"
+func (s *SystemBuild) BuildAttr() utils.NixAttrPath {
+	return utils.NixAttrPath("toplevel")
 }
 
 type VMBuild struct {
 	WithBootloader bool
 }
 
-func (v *VMBuild) BuildAttr() string {
+func (v *VMBuild) BuildAttr() utils.NixAttrPath {
 	if v.WithBootloader {
-		return "vmWithBootLoader"
+		return utils.NixAttrPath("vmWithBootLoader")
 	} else {
-		return "vm"
+		return utils.NixAttrPath("vm")
 	}
 }
 
@@ -96,6 +97,6 @@ type ImageBuild struct {
 	Variant string
 }
 
-func (i *ImageBuild) BuildAttr() string {
-	return fmt.Sprintf("images.%s", i.Variant)
+func (i *ImageBuild) BuildAttr() utils.NixAttrPath {
+	return utils.NewNixAttrPath("images", i.Variant)
 }
