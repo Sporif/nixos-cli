@@ -60,6 +60,71 @@ func Quote(s string) string {
 	return s
 }
 
+type NixAttrName string
+
+var specialAttrCharsPattern = regexp.MustCompile(`[. ]`)
+
+// Create a Nix attribute name by quoting the string s if it contains
+// dots or spaces.
+func NewNixAttrName(s string) NixAttrName {
+	if strings.HasPrefix(s, "\"") && strings.HasSuffix(s, "\"") ||
+		!specialAttrCharsPattern.MatchString(s) {
+		return NixAttrName(s)
+	}
+
+	return NixAttrName("\"" + s + "\"")
+}
+
+func (n NixAttrName) String() string {
+	return string(n)
+}
+
+type NixAttrPath string
+
+// Create a Nix attribute path by joining attribute names with dots
+// and ignoring any empty attributes names.
+func NewNixAttrPath(a ...any) NixAttrPath {
+	var attrPath strings.Builder
+
+	for i := range a {
+		var next string
+
+		switch elem := a[i].(type) {
+		case string:
+			next = NewNixAttrName(elem).String()
+		case NixAttrName:
+			next = elem.String()
+		case NixAttrPath:
+			next = elem.String()
+		default:
+			next = fmt.Sprintf("%v", elem)
+		}
+
+		if next != "" {
+			if attrPath.Len() > 0 {
+				attrPath.WriteString(".")
+			}
+			attrPath.WriteString(next)
+		}
+	}
+
+	return NixAttrPath(attrPath.String())
+}
+
+func (p NixAttrPath) String() string {
+	return string(p)
+}
+
+func (p NixAttrPath) Join(attrPath NixAttrPath) NixAttrPath {
+	if len(attrPath) == 0 {
+		return p
+	} else if len(p) == 0 {
+		return attrPath
+	} else {
+		return p + "." + attrPath
+	}
+}
+
 // Resolve a Nix filename to a real file.
 //
 // If `filename` is a file, then make sure it exists.

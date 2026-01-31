@@ -2,7 +2,6 @@ package generation
 
 import (
 	"encoding/json"
-	"fmt"
 	"os/exec"
 	"path/filepath"
 	"sort"
@@ -10,6 +9,7 @@ import (
 
 	cmdUtils "github.com/nix-community/nixos-cli/internal/cmd/utils"
 	"github.com/nix-community/nixos-cli/internal/configuration"
+	"github.com/nix-community/nixos-cli/internal/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -37,7 +37,7 @@ func CollectSpecialisationsFromConfig(cfg configuration.Configuration) []string 
 
 	switch c := cfg.(type) {
 	case *configuration.FlakeRef:
-		attr := fmt.Sprintf("%s#nixosConfigurations.%s.config.specialisation", c.URI, c.System)
+		attr := c.ConfigAttr(utils.NixAttrPath("specialisation"))
 		argv = []string{"nix", "eval", attr, "--apply", "builtins.attrNames", "--json"}
 	case *configuration.LegacyConfiguration:
 		argv = []string{

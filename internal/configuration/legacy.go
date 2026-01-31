@@ -89,13 +89,7 @@ func (l *LegacyConfiguration) SetBuilder(builder system.CommandRunner) {
 func (l *LegacyConfiguration) EvalAttribute(attr string) (*string, error) {
 	var argv []string
 	if l.UseExplicitPath {
-		var fullAttrPath strings.Builder
-		if l.Attribute != "" {
-			fullAttrPath.WriteString(l.Attribute)
-			fullAttrPath.WriteString(".")
-		}
-		fullAttrPath.WriteString("config.")
-		fullAttrPath.WriteString(attr)
+		fullAttrPath := utils.NewNixAttrPath(l.Attribute, "config", attr)
 
 		argv = []string{"nix-instantiate", "--eval", l.ConfigPath, "-A", fullAttrPath.String()}
 	} else {
@@ -247,16 +241,9 @@ func (l *LegacyConfiguration) buildRemoteSystem(s *system.SSHSystem, buildType B
 }
 
 func makeBuildAttrPath(toplevelAttr string, buildType BuildType) string {
-	var s strings.Builder
-	if toplevelAttr != "" {
-		s.WriteString(toplevelAttr)
-		s.WriteString(".")
-	}
+	attrPath := utils.NewNixAttrPath(toplevelAttr, "config.system.build", buildType.BuildAttr())
 
-	s.WriteString("config.system.build.")
-	s.WriteString(buildType.BuildAttr())
-
-	return s.String()
+	return attrPath.String()
 }
 
 func (l *LegacyConfiguration) BuildSystem(buildType BuildType, opts *SystemBuildOptions) (string, error) {

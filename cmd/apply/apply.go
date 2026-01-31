@@ -756,7 +756,7 @@ func getAvailableImageAttrs(
 	case *configuration.FlakeRef:
 		evalArgs := nixopts.NixOptionsToArgsListByCategory(cobraCmd.Flags(), nixOpts, "lock")
 
-		attr = fmt.Sprintf("%s#nixosConfigurations.%s.config.system.build.images", v.URI, v.System)
+		attr := v.BuildAttr(utils.NewNixAttrPath("images"))
 		argv = []string{"nix", "eval", "--json", attr, "--apply", "builtins.attrNames"}
 		argv = append(argv, evalArgs...)
 	case *configuration.LegacyConfiguration:
@@ -805,7 +805,7 @@ func getImageName(
 	case *configuration.FlakeRef:
 		evalArgs := nixopts.NixOptionsToArgsListByCategory(cobraCmd.Flags(), nixOpts, "lock")
 
-		attr = fmt.Sprintf("%s#nixosConfigurations.%s.config.system.build.images.%s.passthru.filePath", v.URI, v.System, imgName)
+		attr := v.BuildAttr(utils.NewNixAttrPath("images", imgName, "passthru", "filePath"))
 		argv = []string{"nix", "eval", "--raw", attr}
 		argv = append(argv, evalArgs...)
 	case *configuration.LegacyConfiguration:
