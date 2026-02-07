@@ -27,6 +27,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/crypto/ssh/knownhosts"
+	"golang.org/x/sys/unix"
 	"golang.org/x/term"
 )
 
@@ -38,10 +39,11 @@ type SSHSystem struct {
 	address  string
 	port     int
 	password []byte
+	sshopts  []string
 	logger   logger.Logger
 }
 
-func NewSSHSystem(host string, log logger.Logger) (*SSHSystem, error) {
+func NewSSHSystem(localSystem *LocalSystem, host string, log logger.Logger, cfg *settings.Settings) (*SSHSystem, error) {
 	if after, ok := strings.CutPrefix(host, "ssh://"); ok {
 		host = after
 	}
@@ -78,19 +80,55 @@ func NewSSHSystem(host string, log logger.Logger) (*SSHSystem, error) {
 	auth := []ssh.AuthMethod{}
 
 	var conn net.Conn
-	if sock := os.Getenv("SSH_AUTH_SOCK"); sock != "" {
+	var sshopts []string
+	if privateKeyCmd := cfg.Ssh.PrivateKeyCmd; len(privateKeyCmd) > 0 {
+		var stdout bytes.Buffer
+		cmd := NewCommand(privateKeyCmd[0], privateKeyCmd[1:]...)
+		cmd.SetEnv("NIXOS_CLI_SSH_HOST", host)
+		cmd.Stdout = &stdout
+
+		_, err := localSystem.Run(cmd)
+		if err == nil {
+			signer, err := ssh.ParsePrivateKey(stdout.Bytes())
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse private key: %v", err)
+			}
+			memfd, err := unix.MemfdCreate("nixos-cli-ssh-key", unix.MFD_CLOEXEC|unix.MFD_ALLOW_SEALING|unix.MFD_NOEXEC_SEAL)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create memfd: %v", err)
+			}
+			_, err = unix.Write(memfd, stdout.Bytes())
+			if err != nil {
+				return nil, fmt.Errorf("failed to write to memfd: %v", err)
+			}
+			err = unix.Fchmod(memfd, 0o400)
+			if err != nil {
+				return nil, fmt.Errorf("failed to change permissions of memfd: %v", err)
+			}
+			memfdPath := fmt.Sprintf("/proc/%v/fd/%v", os.Getpid(), memfd)
+			sshopts = append(sshopts, "-i", memfdPath)
+			log.Debugf("Using pubkey: %v", strings.TrimSpace(string(ssh.MarshalAuthorizedKey(signer.PublicKey()))))
+			auth = append(auth, ssh.PublicKeys(signer))
+		} else {
+			log.Warnf("failed to run private key command: %v", err)
+			log.Warnf("falling back to password auth")
+		}
+	} else if sock := os.Getenv("SSH_AUTH_SOCK"); sock != "" {
 		dialer := net.Dialer{Timeout: 2 * time.Second}
 		conn, err = dialer.Dial("unix", sock)
 		if err == nil {
 			agentClient := agent.NewClient(conn)
 			auth = append(auth, ssh.PublicKeysCallback(agentClient.Signers))
 		} else {
-			log.Debug("failed to connect to SSH agent: %v", err)
-			log.Debug("falling back to password auth")
+			log.Warnf("failed to connect to SSH agent: %v", err)
+			log.Warnf("falling back to password auth")
 		}
 	}
 
-	knownHostsFile := filepath.Join(os.Getenv("HOME"), ".ssh", "known_hosts")
+	knownHostsFile := cfg.Ssh.KnownHostsFile
+	if knownHostsFile == "" {
+		knownHostsFile = filepath.Join(os.Getenv("HOME"), ".ssh", "known_hosts")
+	}
 	knownHostsKeyCallback, err := knownhosts.New(knownHostsFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create known hosts callback: %v", err)
@@ -132,6 +170,7 @@ func NewSSHSystem(host string, log logger.Logger) (*SSHSystem, error) {
 		address:  address,
 		port:     port,
 		password: password,
+		sshopts:  sshopts,
 		logger:   log,
 	}
 
@@ -513,6 +552,10 @@ func (s *SSHSystem) IsNixOS() bool {
 
 func (s *SSHSystem) Address() string {
 	return fmt.Sprintf("%s@%s:%d", s.user, s.address, s.port)
+}
+
+func (s *SSHSystem) Sshopts() []string {
+	return s.sshopts
 }
 
 func (s *SSHSystem) IsRemote() bool {

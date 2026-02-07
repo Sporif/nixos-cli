@@ -24,6 +24,7 @@ type Settings struct {
 	Init           InitSettings         `koanf:"init"`
 	NoConfirm      bool                 `koanf:"no_confirm"`
 	Option         OptionSettings       `koanf:"option"`
+	Ssh            SshSettings          `koanf:"ssh"`
 	RootCommand    string               `koanf:"root_command"`
 	UseNvd         bool                 `koanf:"use_nvd"`
 }
@@ -58,6 +59,11 @@ type OptionSettings struct {
 	MinScore     int64 `koanf:"min_score"`
 	Prettify     bool  `koanf:"prettify"`
 	DebounceTime int64 `koanf:"debounce_time"`
+}
+
+type SshSettings struct {
+	KnownHostsFile string   `koanf:"known_hosts_file"`
+	PrivateKeyCmd  []string `koanf:"private_key_cmd"`
 }
 
 type ConfirmationPromptBehavior string
@@ -200,6 +206,18 @@ var SettingsDocs = map[string]DescriptionEntry{
 		Short: "Debounce time for searching options using the UI, in milliseconds",
 		Long:  "Controls how often search results are recomputed when typing in the options UI, in milliseconds.",
 	},
+	"ssh": {
+		Short: "Settings for ssh",
+	},
+	"ssh.known_hosts_file": {
+		Short: "Path to known hosts file",
+		Long:  "Path to known hosts file. Defaults to `$HOME/.ssh/known_hosts` if unset.",
+	},
+	"ssh.private_key_cmd": {
+		Short: "Command to use to obtain SSH private key",
+		Long:  "Specifies the command to use to obtain the private key for SSH connections, instead of using the SSH agent." +
+			" The host is passed to the command through the $NIXOS_CLI_SSH_HOST environment variable.",
+	},
 	"root_command": {
 		Short: "Command to use to promote process to root",
 		Long:  "Specifies which command to use for privilege escalation (e.g., sudo or doas).",
@@ -230,6 +248,7 @@ func NewSettings() *Settings {
 			Prettify:     true,
 			DebounceTime: 25,
 		},
+		Ssh: SshSettings{},
 	}
 }
 

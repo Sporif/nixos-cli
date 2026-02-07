@@ -2,6 +2,8 @@ package system
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/nix-community/nixos-cli/internal/logger"
 )
@@ -24,6 +26,7 @@ func CopyClosures(src System, dest System, paths []string, extraArgs ...string) 
 	}
 
 	argv := []string{"nix-copy-closure"}
+	sshopts := []string{os.Getenv("NIX_SSHOPTS")}
 
 	srcIsRemote := src.IsRemote()
 	destIsRemote := dest.IsRemote()
@@ -46,6 +49,8 @@ func CopyClosures(src System, dest System, paths []string, extraArgs ...string) 
 		srcAddr := fmt.Sprintf("ssh://%s", dest.(*SSHSystem).Address())
 		destAddr := dest.(*SSHSystem).Address()
 		argv = append(argv, "--store", srcAddr, "--to", destAddr)
+		sshopts = append(sshopts, src.(*SSHSystem).Sshopts()...)
+		sshopts = append(sshopts, dest.(*SSHSystem).Sshopts()...)
 	} else if srcIsRemote && !destIsRemote {
 		// remote -> local, so use --from and run on the local host (dest), since there
 		// is no reliable way to run this on the remote while determining how
@@ -53,11 +58,13 @@ func CopyClosures(src System, dest System, paths []string, extraArgs ...string) 
 		commandRunner = dest
 		srcAddr := src.(*SSHSystem).Address()
 		argv = append(argv, "--from", srcAddr)
+		sshopts = append(sshopts, src.(*SSHSystem).Sshopts()...)
 	} else if !srcIsRemote && destIsRemote {
 		// local -> remote, so run this command on the local host.
 		commandRunner = src
 		destAddr := dest.(*SSHSystem).Address()
 		argv = append(argv, "--to", destAddr)
+		sshopts = append(sshopts, dest.(*SSHSystem).Sshopts()...)
 	} else {
 		// local -> local, no-op
 		log.Debugf("both systems are local, skipping copy")
@@ -74,6 +81,12 @@ func CopyClosures(src System, dest System, paths []string, extraArgs ...string) 
 	log.CmdArray(argv)
 
 	cmd := NewCommand(argv[0], argv[1:]...)
+	sshoptsEnv := strings.TrimSpace(strings.Join(sshopts, " "))
+	log.Debugf("before NIX_SSHOPTS='%v'", sshoptsEnv)
+	if sshoptsEnv != "" {
+		cmd.SetEnv("NIX_SSHOPTS", sshoptsEnv)
+		log.Debugf("using NIX_SSHOPTS='%v'", sshoptsEnv)
+	}
 	_, err := commandRunner.Run(cmd)
 	return err
 }
