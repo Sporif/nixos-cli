@@ -66,7 +66,7 @@ func InstallCommand() *cobra.Command {
 				return fmt.Errorf("--root must be an absolute path")
 			}
 
-			if opts.SystemClosure != "" {
+			if opts.StorePath != "" {
 				if build.Flake() && opts.FlakeRef != nil || !build.Flake() && opts.File != "" {
 					var nixConfigArg string
 					if build.Flake() {
@@ -74,18 +74,16 @@ func InstallCommand() *cobra.Command {
 					} else {
 						nixConfigArg = "[FILE]"
 					}
-					return fmt.Errorf("--system was specified, but %v was also provided; use one or the other", nixConfigArg)
+					return fmt.Errorf("--store-path was specified, but %v was also provided; use one or the other", nixConfigArg)
 				}
 
-				if !filepath.IsAbs(opts.SystemClosure) {
-					return fmt.Errorf("--system must be an absolute path")
+				storePath, err := utils.ResolveDirectory(opts.StorePath)
+				if err != nil {
+					return fmt.Errorf("failed to resolve store path: %v", err)
 				}
-
-				if _, err := os.Stat(opts.SystemClosure); err != nil {
-					return err
-				}
+				opts.StorePath = storePath
 			} else if build.Flake() && opts.FlakeRef == nil {
-				return fmt.Errorf("one of [FLAKE-REF] or --system must be provided")
+				return fmt.Errorf("one of [FLAKE-REF] or --store-path must be provided")
 			}
 
 			return nil
@@ -112,7 +110,9 @@ func InstallCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&opts.NoChannelCopy, "no-channel-copy", false, "Do not copy over a NixOS channel")
 	cmd.Flags().BoolVar(&opts.NoRootPassword, "no-root-passwd", false, "Do not prompt for setting root password")
 	cmd.Flags().StringVarP(&opts.Root, "root", "r", "/mnt", "Treat `dir` as the root for installation")
-	cmd.Flags().StringVarP(&opts.SystemClosure, "system", "s", "", "Install system from system closure at `path`")
+	cmd.Flags().StringVarP(&opts.StorePath, "store-path", "s", "", "Install from a pre-built NixOS system store `path` instead of building")
+	cmd.Flags().StringVarP(&opts.StorePath, "system", "", "", "")
+	_ = cmd.Flags().MarkDeprecated("system", "please use --store-path instead")
 	cmd.Flags().BoolVarP(&opts.Verbose, "verbose", "v", false, "Show verbose logging")
 
 	opts.NixOptions.Quiet.Bind(&cmd)
@@ -145,7 +145,7 @@ func InstallCommand() *cobra.Command {
 
 	_ = cmd.RegisterFlagCompletionFunc("channel", cmdUtils.DirCompletions)
 	_ = cmd.RegisterFlagCompletionFunc("root", cmdUtils.DirCompletions)
-	_ = cmd.RegisterFlagCompletionFunc("system", cmdUtils.DirCompletions)
+	_ = cmd.RegisterFlagCompletionFunc("store-path", cmdUtils.DirCompletions)
 
 	cmd.MarkFlagsMutuallyExclusive("channel", "no-channel-copy")
 
@@ -420,7 +420,7 @@ func installMain(cmd *cobra.Command, opts *cmdOpts.InstallOpts) error {
 
 	var nixConfig configuration.Configuration
 
-	if opts.SystemClosure == "" {
+	if opts.StorePath == "" {
 		// Find config location. Do not use the config utils to find the configuration,
 		// since the configuration must be specified explicitly. We must avoid
 		// the assumptions about `NIX_PATH` containing `nixos-config`, since it
@@ -487,7 +487,7 @@ func installMain(cmd *cobra.Command, opts *cmdOpts.InstallOpts) error {
 
 	var resultLocation string
 
-	if opts.SystemClosure == "" {
+	if opts.StorePath == "" {
 		envMap := map[string]string{}
 		if os.Getenv("TMPDIR") == "" {
 			envMap["TMPDIR"] = tmpDirname
@@ -517,7 +517,7 @@ func installMain(cmd *cobra.Command, opts *cmdOpts.InstallOpts) error {
 			return err
 		}
 	} else {
-		resultLocation = opts.SystemClosure
+		resultLocation = opts.StorePath
 	}
 
 	log.Step("Creating initial generation...")

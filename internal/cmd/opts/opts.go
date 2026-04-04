@@ -168,7 +168,7 @@ type InstallOpts struct {
 	NoChannelCopy  bool
 	NoRootPassword bool
 	Root           string
-	SystemClosure  string
+	StorePath      string
 	Verbose        bool
 	FlakeRef       *configuration.FlakeRef
 	File           string

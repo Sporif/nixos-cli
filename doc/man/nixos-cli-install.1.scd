@@ -166,11 +166,16 @@ is also possible, assuming a successful installation.
 
 	Default: */mnt*
 
-*-s*, *--system* <PATH>
-	Install the system from an already built system closure at *PATH*.
+*-s*, *--store-path* <PATH>
+	Install the system from a pre-built NixOS system store path at *PATH*
+	instead of evaluating and building from the configuration. This skips
+	the evaluation and build phases entirely. The path must be a valid NixOS
+	system closure (containing _nixos-version_ and _bin/switch-to-configuration_).
 
 	This is useful for installing multiple systems from the same system closure,
 	to avoid repeated _nix build_ calls.
+
+	Mutually exclusive with the *FLAKE-REF* and *FILE* *ATTR* arguments.
 
 *-v*, *--verbose*
 	Enable verbose logging.
