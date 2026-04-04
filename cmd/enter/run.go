@@ -137,16 +137,16 @@ resolvConfDone:
 		log.Warnf("Internet access may not be available")
 	}
 
-	systemClosure := opts.System
-	if systemClosure == "" {
-		systemClosure = filepath.Join(constants.NixProfileDirectory, "system")
+	StorePath := opts.StorePath
+	if StorePath == "" {
+		StorePath = filepath.Join(constants.NixProfileDirectory, "system")
 	}
 
 	s := system.NewLocalSystem(log)
 
 	log.Step("Activating system...")
 
-	err = activate(s, opts.RootLocation, systemClosure, opts.Silent)
+	err = activate(s, opts.RootLocation, StorePath, opts.Silent)
 	if err != nil {
 		log.Errorf("failed to activate system: %v", err)
 		return err
@@ -158,7 +158,7 @@ resolvConfDone:
 		log.Warn("preferring --command flag over positional args, both were specified")
 	}
 
-	bash := filepath.Join(systemClosure, "sw", "bin", "bash")
+	bash := filepath.Join(StorePath, "sw", "bin", "bash")
 	args := opts.CommandArray
 	if opts.Command != "" {
 		args = []string{bash, "-c", opts.Command}
@@ -216,9 +216,9 @@ func bindMountDirectory(root string, subdir string) error {
 	return err
 }
 
-func activate(s system.CommandRunner, root string, systemClosure string, silent bool) error {
-	localeArchive := filepath.Join(systemClosure, "sw", "lib", "locale", "locale-archive")
-	activateScript := filepath.Join(systemClosure, "activate")
+func activate(s system.CommandRunner, root string, StorePath string, silent bool) error {
+	localeArchive := filepath.Join(StorePath, "sw", "lib", "locale", "locale-archive")
+	activateScript := filepath.Join(StorePath, "activate")
 
 	argv := []string{"chroot", root, activateScript}
 
@@ -240,7 +240,7 @@ func activate(s system.CommandRunner, root string, systemClosure string, silent 
 	}
 
 	// Create a tmpfs for building/activating the NixOS system.
-	systemdTmpfiles := filepath.Join(systemClosure, "sw", "bin", "systemd-tmpfiles")
+	systemdTmpfiles := filepath.Join(StorePath, "sw", "bin", "systemd-tmpfiles")
 	argv = []string{"chroot", root, systemdTmpfiles, "--create", "--remove", "--graceful", "-E"}
 
 	s.Logger().CmdArray(argv)

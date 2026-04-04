@@ -30,9 +30,9 @@ Enter a chroot rooted at _/mnt_ by default, and run a single command (no shell):
 
 	*nixos enter -- ls /etc/nixos*
 
-Enter a different system root with a custom system derivation closure path:
+Enter a different system root with a custom system store path:
 
-	*nixos enter --system /nix/store/NIX_STORE_HASH/nixos-system...*
+	*nixos enter --store-path /nix/store/NIX_STORE_HASH/nixos-system...*
 
 Run a command in a chrooted Bash shell and exit:
 
@@ -51,9 +51,11 @@ Run a command in a chrooted Bash shell and exit:
 
 	Default: */mnt*
 
-*--system* <PATH>
-	Manually specify the NixOS system configuration closure *PATH* to activate
+*--store-path* <PATH>
+	Manually specify the NixOS system configuration store *PATH* to activate
 	inside the chroot.
+
+	Default: */nix/var/nix/profiles/system*
 
 *-s*, *--silent*
 	Suppress output from the activation scripts and other spurious logging.

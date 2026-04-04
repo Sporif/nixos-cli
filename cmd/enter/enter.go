@@ -40,12 +40,14 @@ func EnterCommand() *cobra.Command {
 
 	cmd.Flags().StringVarP(&opts.Command, "command", "c", "", "Command `string` to execute in bash")
 	cmd.Flags().StringVarP(&opts.RootLocation, "root", "r", "/mnt", "NixOS system root `path` to enter")
-	cmd.Flags().StringVar(&opts.System, "system", "", "NixOS system configuration to activate at `path`")
+	cmd.Flags().StringVar(&opts.StorePath, "store-path", "", "NixOS system store `path` to activate inside the chroot")
+	cmd.Flags().StringVarP(&opts.StorePath, "system", "", "", "")
+	_ = cmd.Flags().MarkDeprecated("system", "please use --store-path instead")
 	cmd.Flags().BoolVarP(&opts.Silent, "silent", "s", false, "Suppress all system activation output")
 	cmd.Flags().BoolVarP(&opts.Verbose, "verbose", "v", false, "Show verbose logging")
 
 	_ = cmd.RegisterFlagCompletionFunc("root", cmdUtils.DirCompletions)
-	_ = cmd.RegisterFlagCompletionFunc("system", cmdUtils.DirCompletions)
+	_ = cmd.RegisterFlagCompletionFunc("store-path", cmdUtils.DirCompletions)
 
 	cmd.MarkFlagsMutuallyExclusive("silent", "verbose")
 

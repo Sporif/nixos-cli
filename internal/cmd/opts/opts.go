@@ -93,7 +93,7 @@ type EnterOpts struct {
 	Command      string
 	CommandArray []string
 	RootLocation string
-	System       string
+	StorePath    string
 	Silent       bool
 	Verbose      bool
 }
